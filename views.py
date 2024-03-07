@@ -1,130 +1,180 @@
-from flask import Flask, render_template, request, send_file, redirect, url_for
+from typing import List
+import uuid
+import os
+from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi.responses import StreamingResponse, RedirectResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from concurrent.futures import ThreadPoolExecutor
 from data_cleaning import directory_creator, upload_data, clean_data, clean_nulls, drop_columns
-import os
-from shutil import rmtree
+from os import rmdir
 from arguments import argument_definition
+import pandas as pd
+from io import BytesIO
 
+app = FastAPI()
 
-app = Flask(__name__)
+app.add_middleware(SessionMiddleware, secret_key="prueba_secret_key")
 
 args = argument_definition()
 
+cleaned_dataframes = {}
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+templates = Jinja2Templates(directory="templates")
+
+@app.get('/', response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse('index.html', {'request': request})
 
 
-@app.route('/upload', methods=['POST'])
-def upload():
+@app.post('/upload')
+async def upload(request: Request, folder_name: str = Form(...), files: List[UploadFile] = File(...)):
 
-    directory_creator(args.directory, args.folder)
+    directory_path = await directory_creator(args.directory, folder_name)
+    global cleaned_dataframes
+
+    file_id = str(uuid.uuid4())
+
+    file_paths = []
+    for file in files:
+        # Asegurarnos de que el nombre del archivo sea correcto
+        safe_filename = "".join(c for c in file.filename if c.isalnum() or
+                                c in (' ', '.', '_')).rstrip()
+        filename = os.path.join(directory_path, safe_filename)
+
+        with open(filename, 'wb') as out_file:
+            content = await file.read()  # async read
+            out_file.write(content)
+        file_paths.append(filename)
+
+    with ThreadPoolExecutor() as thread:
+        p_res = thread.map(upload_data, file_paths)
+
+    cleaned_dataframes[file_id] = list(p_res)
+
+    request.session['file_identifier'] = file_id
+    request.session['folder_name'] = folder_name
+
+    return RedirectResponse(url='/results', status_code=303)
+
+
+@app.get('/results')
+async def show_results(request: Request):
 
     global cleaned_dataframes
 
-    with ThreadPoolExecutor() as thread:
-        p_res = thread.map(upload_data, [f for f in os.listdir(args.directory+'/'+args.folder) if os.path.isfile(os.path.join(args.directory+'/'+args.folder, f))])
+    results = cleaned_dataframes[request.session.get('file_identifier')]
 
-    cleaned_dataframes = list(p_res)
-
-    # Renderizar la plantilla con los DataFrames limpios
-    return render_template('results.html', dataframes=cleaned_dataframes)
+    return templates.TemplateResponse("results.html", {
+        "request": request, "dataframes": results})
 
 
 @app.route('/drop_duplicates', methods=['POST'])
-def drop_duplicates():
+def drop_duplicates(request: Request):
 
     global cleaned_dataframes
 
+    file_id = request.session.get('file_identifier')
+
     with ThreadPoolExecutor() as thread:
-        p_res = thread.map(clean_data, cleaned_dataframes)
+        p_res = thread.map(clean_data, cleaned_dataframes[file_id])
 
-    cleaned_dataframes = list(p_res)
+    cleaned_dataframes[file_id] = list(p_res)
 
-    # Renderizar la plantilla con los DataFrames limpios
-    return render_template('results.html', dataframes=cleaned_dataframes)
+    return templates.TemplateResponse("results.html", {
+        "request": request, "dataframes": cleaned_dataframes[file_id]})
 
 
 @app.route('/drop_nulls', methods=['POST'])
-def drop_nulls():
+def drop_nulls(request: Request):
 
     global cleaned_dataframes
 
+    file_id = request.session.get('file_identifier')
+
     with ThreadPoolExecutor() as thread:
-        p_res = thread.map(clean_nulls, cleaned_dataframes)
+        p_res = thread.map(clean_nulls, cleaned_dataframes[file_id])
 
-    cleaned_dataframes = list(p_res)
+    cleaned_dataframes[file_id] = list(p_res)
 
-    # Renderizar la plantilla con los DataFrames limpios
-    return render_template('results.html', dataframes=cleaned_dataframes)
+    return templates.TemplateResponse("results.html", {
+        "request": request, "dataframes": cleaned_dataframes[file_id]})
 
 
-@app.route('/drop_column', methods=['POST'])
-def drop_column():
-
+@app.post('/drop_column')
+async def drop_column(request: Request, columns_to_drop: str = Form(...)):
     global cleaned_dataframes
 
-    # Obtener las columnas a eliminar desde el formulario
-    columns_to_drop = request.form.get('columns_to_drop').split(',')
+    file_id = request.session.get('file_identifier')
+
+    columns_to_drop_list = [column.strip() for column in columns_to_drop.split(',')]
 
     with ThreadPoolExecutor() as thread:
-        # Aplicar la función drop_columns a todos los DataFrames
-        p_res = thread.map(lambda df: drop_columns(df, columns_to_drop), cleaned_dataframes)
+        p_res = thread.map(lambda df: drop_columns(df, columns_to_drop_list),
+                           cleaned_dataframes[file_id])
 
-    cleaned_dataframes = list(p_res)
+    cleaned_dataframes[file_id] = list(p_res)
 
-    # Renderizar la plantilla con los DataFrames después de eliminar columnas
-    return render_template('results.html', dataframes=cleaned_dataframes)
+    return templates.TemplateResponse("results.html", {
+        "request": request,
+        "dataframes": cleaned_dataframes[file_id]
+    })
 
 
-
-@app.route('/download_dataframe/<int:idx>')
-def download_dataframe(idx):
-    # Verificar que idx sea un índice válido en la lista de DataFrames
-    if 0 <= idx < len(cleaned_dataframes):
-        # Convertir el DataFrame a un archivo CSV en memoria
-        csv_data = cleaned_dataframes[idx].to_csv(index=False).encode('utf-8')
-        # Crear un objeto BytesIO para almacenar los datos en memoria
+@app.get('/download_dataframe/{idx}')
+async def download_dataframe(request: Request, idx: int):
+    file_id = request.session.get('file_identifier')
+    if 0 <= idx < len(cleaned_dataframes[file_id]):
+        csv_data = cleaned_dataframes[file_id][idx].to_csv(index=False).encode('utf-8')
         csv_io = BytesIO(csv_data)
-        # Enviar el archivo CSV como respuesta
-        return send_file(csv_io, mimetype='text/csv', download_name=f'dataframe_{idx + 1}.csv')
+        csv_io.seek(0)
+        return StreamingResponse(csv_io, media_type="text/csv",
+                                 headers={"Content-Disposition":
+                                          f"attachment;filename=dataframe_{idx+1}.csv"})
     else:
-        return "Índice no válido"
+        return ("Índice no válido")
 
-@app.route('/download_all_dataframes')
-def download_all_dataframes():
-    # Concatenar todos los DataFrames en uno solo
-    combined_dataframe = pd.concat(cleaned_dataframes, ignore_index=True)
-    # Convertir el DataFrame combinado a un archivo CSV en memoria
+
+@app.get('/download_all_dataframes')
+async def download_all_dataframes(request: Request):
+    file_id = request.session.get('file_identifier')
+    combined_dataframe = pd.concat(cleaned_dataframes[file_id], ignore_index=True)
     csv_data = combined_dataframe.to_csv(index=False).encode('utf-8')
-    # Crear un objeto BytesIO para almacenar los datos en memoria
+    # Guarda el csv en memoria
     csv_io = BytesIO(csv_data)
-    # Enviar el archivo CSV como respuesta
-    return send_file(csv_io, mimetype='text/csv', download_name='all_dataframes.csv')
-
+    # Pone el puntero al inicio del archivo
+    csv_io.seek(0)
+    return StreamingResponse(csv_io, media_type="text/csv",
+                             headers={"Content-Disposition":
+                                      "attachment;filename=full_dataframe.csv"})
 
 
 @app.route('/clear_dataframes', methods=['POST'])
-def clear_dataframes():
+def clear_dataframes(request: Request):
     global cleaned_dataframes
 
-    # Eliminar los DataFrames de la lista
-    cleaned_dataframes = []
+    file_id = request.session.get('file_identifier')
+    folder_name = request.session.get('folder_name')
 
-    folder_path = args.directory+'/'+args.folder
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
+    cleaned_dataframes[file_id] = []
+
+    directory_path = os.path.join(args.directory, folder_name)
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
         try:
             if os.path.isfile(file_path):
                 os.remove(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
         except Exception as e:
             print(f"Error al eliminar {file_path}: {e}")
 
-    return redirect(url_for('index'))
+    rmdir(directory_path)
+
+    request.session.pop(file_id, None)
+    request.session.pop(folder_name, None)
+
+    return templates.TemplateResponse('index.html', {'request': request})
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host=args.host, port=args.port)

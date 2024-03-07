@@ -11,10 +11,10 @@ def argument_definition():
     parser.add_argument("-p", "--port", type=int, default=5000,
                         help="port where server is setup")
 
-    parser.add_argument("-d", "--directory", default="/ex_files",
+    parser.add_argument("-d", "--directory", default="file_server",
                         help="server's file storage directory")
 
-    parser.add_argument("-f", "--folder", default="/default",
+    parser.add_argument("-f", "--folder", default="bares",
                         help="server's file storage folder")
 
     parser.add_argument("-i", "--header", default=0,

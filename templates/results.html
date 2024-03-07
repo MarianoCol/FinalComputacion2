@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .dataframe-container {
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .download-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #4caf50;
+            color: white;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .download-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Resultados</h1>
+
+    <form class="download-btn" method="post" action="/drop_duplicates">
+        <button type="submit">Eliminar duplicados</button>
+    </form>
+    <form class="download-btn" method="post" action="/drop_nulls">
+        <button type="submit">Eliminar nulos</button>
+    </form>
+
+    <form action="/drop_column" method="post">
+        <label for="columns_to_drop">Columnas a eliminar (separadas por coma):</label>
+        <input type="text" id="columns_to_drop" name="columns_to_drop" required>
+        <button type="submit">Eliminar Columnas en Todos los DataFrames</button>
+    </form>
+
+    {% if dataframes %}
+        {% for dataframe in dataframes %}
+            <div class="dataframe-container">
+                <h2>Dataframe {{ loop.index }}:</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            {% for column in dataframe.columns %}
+                                <th>{{ column }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set max_rows = 10 %}
+                        {% for _, row in dataframe.head(max_rows).iterrows() %}
+                            <tr>
+                                {% for _, value in row.items() %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                        {% if dataframe.shape[0] > max_rows %}
+                            <tr>
+                                <td colspan="{{ dataframe.shape[1] }}">...</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+                <!-- Cambiar enlace de descarga a botón con estilos -->
+                <a class="download-btn" href="/download_dataframe/{{ loop.index0 }}">
+                    Descargar DataFrame {{ loop.index }}
+                </a>
+            </div>
+        {% endfor %}
+
+        <!-- Botón para limpiar la lista de cleaned_dataframes -->
+        <form method="post" action="/clear_dataframes">
+            <button type="submit">Limpiar DataFrames</button>
+        </form>
+
+        <!-- Cambiar enlace de descarga para todos los DataFrames a botón con estilos -->
+        <a class="download-btn" href="/download_all_dataframes">
+            Descargar Todos los DataFrames
+        </a>
+    {% else %}
+        <p>No hay datos para mostrar.</p>
+    {% endif %}
+</body>
+</html>

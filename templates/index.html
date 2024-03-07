@@ -44,7 +44,10 @@
 <body>
     <h1>Subir Archivos CSV</h1>
     <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="files[]" multiple accept=".csv" />
+        <label for="folder_name">Nombre de la Carpeta:</label>
+        <input type="text" id="folder_name" name="folder_name" required>
+        <br><br>
+        <input type="file" name="files" multiple accept=".csv" />
         <br>
         <button type="submit">Subir</button>
     </form>
