@@ -1,15 +1,22 @@
-# import tkinter as tk
+import tkinter as tk
 from tkinter import filedialog
 import socket
 import os
+from arguments import argument_definition
+
+archivos_seleccionados = []
+
+args = argument_definition()
 
 
-def enviar_archivos_seleccionados(cliente):
-    archivos_seleccionados = filedialog.askopenfilenames()
-    for filename in archivos_seleccionados:
-        print("Enviando:", filename)
-        enviar_archivo(cliente, filename)
-        print("Archivo {} enviado exitosamente".format(filename))
+def enviar_archivos_seleccionados():
+    global archivos_seleccionados
+    archivos_seleccionados = list(filedialog.askopenfilenames())
+    print("Archivos seleccionados:", archivos_seleccionados)
+    # for filename in archivos_seleccionados:
+    #     print("Enviando:", filename)
+    #     enviar_archivo(cliente, filename)
+    #     print("Archivo {} enviado exitosamente".format(filename))
 
 
 def enviar_archivo(conn, filename):
@@ -23,30 +30,39 @@ def enviar_archivo(conn, filename):
 
 
 def main():
-    host = '127.0.0.1'
-    port = 12345
+    host = args.host
+    port = args.port
 
     cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cliente.connect((host, port))
 
-    # root = tk.Tk()
-    # root.title("Cliente")
-    # root.geometry("300x200")
+    cliente.sendall(args.folder.encode())
 
-    # btn_seleccionar_archivos = tk.Button(root, text="Seleccionar archivos",
-    #                                      command=enviar_archivos_seleccionados(cliente))
-    # btn_seleccionar_archivos.pack(pady=20)
+    root = tk.Tk()
+    root.title("Cliente")
+    root.geometry("300x200")
 
-    # root.mainloop()
+    btn_seleccionar_archivos = tk.Button(root, text="Seleccionar archivos",
+                                         command=enviar_archivos_seleccionados())
+    btn_seleccionar_archivos.pack(pady=20)
 
-    archivos_a_enviar = ['LFP Detalle (01042018).csv',
-                         'LFP Detalle (31102018).csv',
-                         'LFP Detalle (07012018).csv']
+    print(archivos_seleccionados)
 
-    for filename in archivos_a_enviar:
+    for filename in archivos_seleccionados:
         print("Enviando:", filename)
         enviar_archivo(cliente, filename)
         print("Archivo {} enviado exitosamente".format(filename))
+
+    # root.mainloop()
+
+    # archivos_a_enviar = ['LFP Detalle (01042018).csv',
+    #                      'LFP Detalle (31102018).csv',
+    #                      'LFP Detalle (07012018).csv']
+
+    # for filename in archivos_a_enviar:
+    #     print("Enviando:", filename)
+    #     enviar_archivo(cliente, filename)
+    #     print("Archivo {} enviado exitosamente".format(filename))
 
     cliente.close()
 

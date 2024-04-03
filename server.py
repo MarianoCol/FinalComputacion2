@@ -1,7 +1,7 @@
 import socket
 import os
-from concurrent.futures import ThreadPoolExecutor
-from data_cleaning import upload_data, clean_data, clean_nulls, drop_columns
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from data_cleaning import upload_data, clean_data, clean_nulls, drop_columns, directory_creator
 
 
 def recibir_archivo(conn, filename, filesize):
@@ -15,19 +15,9 @@ def recibir_archivo(conn, filename, filesize):
             recibido += len(data)
 
 
-def main():
-    host = '::'  # Escuchará tanto en IPv4 como en IPv6
-    port = 12345
-
-    servidor = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    servidor.bind((host, port))
-    servidor.listen(1)
-    print("Servidor escuchando en {}:{}".format(host, port))
-
-    conn, addr = servidor.accept()
-    print("Conexión establecida desde:", addr)
-
+def handle_client(conn, addr):
+    folder_name = conn.recv(1024).decode()
+    directory_path = directory_creator('file_server', folder_name)
     file_paths = []
 
     while True:
@@ -35,9 +25,11 @@ def main():
         if not filename_len:
             break
         filename = conn.recv(filename_len).decode()
+        filename = filename.split('/')
+        filename = filename[-1]
         filesize = int.from_bytes(conn.recv(8), byteorder='big')
         print("Recibiendo:", filename)
-        filepath = os.path.join('file_server', filename)
+        filepath = os.path.join(directory_path, filename)
         file_paths.append(filepath)
         recibir_archivo(conn, filepath, filesize)
         print("Archivo {} recibido exitosamente".format(filename))
@@ -66,6 +58,25 @@ def main():
     print(list(p_res))
 
     conn.close()
+
+
+def main():
+    host = '::'  # Escuchará tanto en IPv4 como en IPv6
+    port = 12345
+
+    servidor = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    servidor.bind((host, port))
+    servidor.listen(5)
+    print("Servidor escuchando en {}:{}".format(host, port))
+
+    with ProcessPoolExecutor(max_workers=5) as executor:  # Ejecutar hasta 5 procesos simultáneos
+        while True:
+            conn, addr = servidor.accept()
+            print("Conexión establecida desde:", addr)
+
+            # Enviar la tarea a un proceso del pool
+            executor.submit(handle_client, conn, addr)
 
 
 if __name__ == "__main__":

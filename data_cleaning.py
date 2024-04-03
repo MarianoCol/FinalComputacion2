@@ -26,7 +26,7 @@ def drop_columns(dataframe, columns_to_drop):
     return cleaned_data
 
 
-async def directory_creator(route_name, folder_name):
+def directory_creator(route_name, folder_name):
     directory_path = os.path.join(route_name, folder_name)
     try:
         os.makedirs(directory_path, exist_ok=True)
