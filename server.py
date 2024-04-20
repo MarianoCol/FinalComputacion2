@@ -34,34 +34,39 @@ def handle_client(conn, addr):
         recibir_archivo(conn, filepath, filesize)
         print("Archivo {} recibido exitosamente".format(filename))
 
+    handle_parameters(conn, file_paths)
+
+
+def handle_parameters(conn, file_paths):
+    parameters = conn.recv(1024).decode()
+    list_parameters = parameters.split(',')
     with ThreadPoolExecutor() as thread:
-        p_res = thread.map(upload_data, file_paths)
+        p_res = list(thread.map(upload_data, file_paths))
 
-    dataframes = list(p_res)
+    if list_parameters[0] == 'SI':
+        with ThreadPoolExecutor() as thread:
+            p_res = thread.map(clean_data, p_res)
 
-    with ThreadPoolExecutor() as thread:
-        p_res = thread.map(clean_data, dataframes)
+    if list_parameters[1] == 'SI':
+        with ThreadPoolExecutor() as thread:
+            p_res = thread.map(clean_nulls, p_res)
 
-    cleaned_dataframes = list(p_res)
+    # no_null_dataframes = list(p_res)
 
-    with ThreadPoolExecutor() as thread:
-        p_res = thread.map(clean_nulls, cleaned_dataframes)
+    columns_to_drop_list = list_parameters[3:]
 
-    no_null_dataframes = list(p_res)
-
-    columns_to_drop_list = ['cadena', 'jornada']
-
-    with ThreadPoolExecutor() as thread:
-        p_res = thread.map(lambda df: drop_columns(df, columns_to_drop_list),
-                           no_null_dataframes)
+    if list_parameters[2] == 'SI':
+        with ThreadPoolExecutor() as thread:
+            p_res = thread.map(lambda df: drop_columns(df, columns_to_drop_list),
+                               list(p_res))
 
     print(list(p_res))
 
-    conn.close()
+    # conn.close()
 
 
 def main():
-    host = '::'  # Escuchará tanto en IPv4 como en IPv6
+    host = '::'  # Recibe IPv4 como en IPv6
     port = 12345
 
     servidor = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
