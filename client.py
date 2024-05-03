@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter import filedialog, simpledialog
+from tkinter import filedialog, simpledialog, messagebox
 import socket
+import threading
 import os
 from arguments import argument_definition
+import pickle
 
 archivos_seleccionados = []
 
@@ -42,6 +44,26 @@ def eliminar_columnas():
         return "NO", ""
 
 
+def recibir_dataframes(cliente):
+    cliente.sendall(b"DESCARGAR_DATAFRAMES")
+
+    # Recibir el tamaño del dataframe serializado del servidor
+    dataframe_size = int.from_bytes(cliente.recv(4), byteorder='big')
+
+    # Recibir el dataframe serializado del servidor
+    combined_dataframe_serializado = b""
+    while len(combined_dataframe_serializado) < dataframe_size:
+        data = cliente.recv(4096)
+        combined_dataframe_serializado += data
+
+    # Deserializar el dataframe combinado
+    combined_dataframe = pickle.loads(combined_dataframe_serializado)
+
+    # Guardar el dataframe combinado como un archivo CSV localmente
+    combined_dataframe.to_csv("combined_dataframe.csv", index=False)
+    print("Dataframes descargados y guardados como 'combined_dataframe.csv'")
+
+
 def main():
     host = args.host
     port = args.port
@@ -54,14 +76,6 @@ def main():
     root = tk.Tk()
     root.title("Cliente")
     root.geometry("300x400")
-
-    resultados = []
-
-    def toggle_resultado(resultado):
-        if resultado in resultados:
-            resultados.remove(resultado)
-        else:
-            resultados.append(resultado)
 
     btn_seleccionar_archivos = tk.Button(root, text="Seleccionar archivos",
                                          command=enviar_archivos_seleccionados())
@@ -112,30 +126,8 @@ def main():
     btn_enviar_resultados = tk.Button(root, text="Enviar resultados", command=enviar_resultados_seleccionados)
     btn_enviar_resultados.pack(pady=20)
 
-    # eliminar_nulos_var = tk.StringVar(value="NO")
-    # eliminar_duplicados_var = tk.StringVar(value="NO")
-
-    # lbl_eliminar_nulos = tk.Label(root, text="Desea eliminar los nulos:")
-    # lbl_eliminar_nulos.pack()
-    # radio_eliminar_nulos_si = tk.Radiobutton(root, text="SI", variable=eliminar_nulos_var, value="SI")
-    # radio_eliminar_nulos_si.pack()
-    # radio_eliminar_nulos_no = tk.Radiobutton(root, text="NO", variable=eliminar_nulos_var, value="NO")
-    # radio_eliminar_nulos_no.pack()
-
-    # lbl_eliminar_duplicados = tk.Label(root, text="Desea eliminar los duplicados:")
-    # lbl_eliminar_duplicados.pack()
-    # radio_eliminar_duplicados_si = tk.Radiobutton(root, text="SI", variable=eliminar_duplicados_var, value="SI")
-    # radio_eliminar_duplicados_si.pack()
-    # radio_eliminar_duplicados_no = tk.Radiobutton(root, text="NO", variable=eliminar_duplicados_var, value="NO")
-    # radio_eliminar_duplicados_no.pack()
-
-    # def enviar_resultados_seleccionados():
-    #     eliminar_nulos = eliminar_nulos_var.get()
-    #     eliminar_duplicados = eliminar_duplicados_var.get()
-    #     enviar_resultados(cliente, eliminar_nulos, eliminar_duplicados)
-
-    # btn_enviar_resultados = tk.Button(root, text="Enviar resultados", command=enviar_resultados_seleccionados)
-    # btn_enviar_resultados.pack(pady=20)
+    btn_descargar_dataframes = tk.Button(root, text="Descargar dataframes", command=lambda: recibir_dataframes(cliente))
+    btn_descargar_dataframes.pack(pady=20)
 
     root.mainloop()
 
@@ -144,6 +136,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# filename = ['LFP Detalle (01042018).csv', 'LFP Detalle (07012018).csv']

@@ -1,7 +1,8 @@
 import socket
 import os
+import pickle
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from data_cleaning import upload_data, clean_data, clean_nulls, drop_columns, directory_creator
+from data_cleaning import upload_data, clean_data, clean_nulls, drop_columns, directory_creator, send_all_dataframes
 
 
 def recibir_archivo(conn, filename, filesize):
@@ -34,8 +35,15 @@ def handle_client(conn, addr):
         recibir_archivo(conn, filepath, filesize)
         print("Archivo {} recibido exitosamente".format(filename))
 
-    handle_parameters(conn, file_paths)
+    dataframes = handle_parameters(conn, file_paths)
+    prueba = list(dataframes)
+    print(prueba)
+    # Serializar el dataframe combinado
+    descarga = conn.recv(1024).decode()
+    if descarga != '':
+        print(descarga)
 
+        send_all_dataframes(conn, prueba)
 
 def handle_parameters(conn, file_paths):
     parameters = conn.recv(1024).decode()
@@ -51,8 +59,6 @@ def handle_parameters(conn, file_paths):
         with ThreadPoolExecutor() as thread:
             p_res = thread.map(clean_nulls, p_res)
 
-    # no_null_dataframes = list(p_res)
-
     columns_to_drop_list = list_parameters[3:]
 
     if list_parameters[2] == 'SI':
@@ -60,7 +66,7 @@ def handle_parameters(conn, file_paths):
             p_res = thread.map(lambda df: drop_columns(df, columns_to_drop_list),
                                list(p_res))
 
-    print(list(p_res))
+    return p_res
 
     # conn.close()
 

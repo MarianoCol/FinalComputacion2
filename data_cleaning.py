@@ -1,6 +1,7 @@
 from arguments import argument_definition
 import pandas as pd
 import os
+import pickle
 
 args = argument_definition()
 
@@ -24,6 +25,30 @@ def drop_columns(dataframe, columns_to_drop):
     # Eliminar las columnas especificadas del DataFrame
     cleaned_data = dataframe.drop(columns=columns_to_drop, errors='ignore')
     return cleaned_data
+
+
+def send_all_dataframes(conn, dataframes):
+    # Combinar los dataframes en uno solo
+    print(list(dataframes))
+    print('entro')
+    lista_dataframes = []
+    for i in list(dataframes):
+        lista_dataframes.append(i)
+    print(lista_dataframes)
+    combined_dataframe = pd.concat(lista_dataframes, ignore_index=True)
+    print(combined_dataframe)
+
+    # Serializar el dataframe combinado
+    combined_dataframe_serializado = pickle.dumps(combined_dataframe)
+    print('dumpeados')
+
+    # Enviar el tamaño del dataframe serializado al cliente
+    conn.sendall(len(combined_dataframe_serializado).to_bytes(4, byteorder='big'))
+    print('tamaño enviado')
+
+    # Enviar el dataframe serializado al cliente
+    conn.sendall(combined_dataframe_serializado)
+    print('enviado')
 
 
 def directory_creator(route_name, folder_name):
