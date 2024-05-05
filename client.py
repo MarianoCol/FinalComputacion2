@@ -1,20 +1,80 @@
 import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox
 import socket
-import threading
 import os
 from arguments import argument_definition
 import pickle
 
-archivos_seleccionados = []
-
 args = argument_definition()
 
 
-def enviar_archivos_seleccionados():
-    global archivos_seleccionados
+# class ClienteController:
+#     def __init__(self):
+#         self.cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#         self.archivos_seleccionados = []
+
+#     def conectar_servidor(self, args):
+#         self.cliente.connect((args.host, args.port))
+#         self.cliente.sendall(args.folder.encode())
+
+#     def seleccionar_archivos(self):
+#         self.archivos_seleccionados = list(filedialog.askopenfilenames())
+#         print("Archivos seleccionados:", self.archivos_seleccionados)
+#         return self.archivos_seleccionados
+
+#     def enviar_archivos(self):
+#         for filename in self.archivos_seleccionados:
+#             print("Enviando:", filename)
+#             self.enviar_archivo(filename)
+#             print("Archivo {} enviado exitosamente".format(filename))
+
+#     def enviar_archivo(self, filename):
+#         filesize = os.path.getsize(filename)
+#         self.cliente.sendall(len(filename).to_bytes(4, byteorder='big'))
+#         self.cliente.sendall(filename.encode())
+#         self.cliente.sendall(filesize.to_bytes(8, byteorder='big'))
+#         with open(filename, 'rb') as f:
+#             for data in f:
+#                 self.cliente.sendall(data)
+
+#     def enviar_resultados(self, eliminar_nulos, eliminar_duplicados, eliminar_columnas, columnas):
+#         self.cliente.sendall(len(b'').to_bytes(4, byteorder='big'))
+#         # Envía los resultados al servidor
+#         resultados = f"{eliminar_nulos},{eliminar_duplicados},{eliminar_columnas},{columnas}"
+#         self.cliente.sendall(resultados.encode())
+#         print("Resultados enviados al servidor:", resultados)
+
+#     def eliminar_columnas(self):
+#         columnas_a_eliminar = simpledialog.askstring("Eliminar columnas", "Ingrese las columnas a eliminar separadas por coma:")
+#         if columnas_a_eliminar:
+#             lista = columnas_a_eliminar
+#             return lista
+#         else:
+#             return "NO", ""
+
+#     def recibir_dataframes(self):
+#         self.cliente.sendall(b"DESCARGAR_DATAFRAMES")
+
+#         # Recibir el tamaño del dataframe serializado del servidor
+#         dataframe_size = int.from_bytes(self.cliente.recv(4), byteorder='big')
+
+#         # Recibir el dataframe serializado del servidor
+#         combined_dataframe_serializado = b""
+#         while len(combined_dataframe_serializado) < dataframe_size:
+#             data = self.cliente.recv(4096)
+#             combined_dataframe_serializado += data
+
+#         # Deserializar el dataframe combinado
+#         combined_dataframe = pickle.loads(combined_dataframe_serializado)
+
+#         # Guardar el dataframe combinado como un archivo CSV localmente
+#         combined_dataframe.to_csv("combined_dataframe.csv", index=False)
+#         print("Dataframes descargados y guardados como 'combined_dataframe.csv'")
+
+def seleccionar_archivos():
     archivos_seleccionados = list(filedialog.askopenfilenames())
     print("Archivos seleccionados:", archivos_seleccionados)
+    return archivos_seleccionados
 
 
 def enviar_archivo(conn, filename):
@@ -64,6 +124,68 @@ def recibir_dataframes(cliente):
     print("Dataframes descargados y guardados como 'combined_dataframe.csv'")
 
 
+# class ClienteView(tk.Tk):
+#     def __init__(self, controller):
+#         super().__init__()
+#         self.title("Cliente")
+#         self.geometry("300x400")
+
+#         self.controller = controller
+
+#         btn_seleccionar_archivos = tk.Button(self, text="Seleccionar archivos", command=self.controller.seleccionar_archivos)
+#         btn_seleccionar_archivos.pack(pady=20)
+
+#         archivos_seleccionados = self.controller.seleccionar_archivos()
+
+#         print(archivos_seleccionados)
+
+#         for filename in archivos_seleccionados:
+#             print("Enviando:", filename)
+#             self.controller.enviar_archivo(filename)
+#             print("Archivo {} enviado exitosamente".format(filename))
+
+#         self.eliminar_nulos_var = tk.StringVar(value="NO")
+#         self.eliminar_duplicados_var = tk.StringVar(value="NO")
+#         self.eliminar_columnas_var = tk.StringVar(value="NO")
+
+#         lbl_eliminar_nulos = tk.Label(self, text="Desea eliminar los nulos:")
+#         lbl_eliminar_nulos.pack()
+#         radio_eliminar_nulos_si = tk.Radiobutton(self, text="SI", variable=self.eliminar_nulos_var, value="SI")
+#         radio_eliminar_nulos_si.pack()
+#         radio_eliminar_nulos_no = tk.Radiobutton(self, text="NO", variable=self.eliminar_nulos_var, value="NO")
+#         radio_eliminar_nulos_no.pack()
+
+#         lbl_eliminar_duplicados = tk.Label(self, text="Desea eliminar los duplicados:")
+#         lbl_eliminar_duplicados.pack()
+#         radio_eliminar_duplicados_si = tk.Radiobutton(self, text="SI", variable=self.eliminar_duplicados_var, value="SI")
+#         radio_eliminar_duplicados_si.pack()
+#         radio_eliminar_duplicados_no = tk.Radiobutton(self, text="NO", variable=self.eliminar_duplicados_var, value="NO")
+#         radio_eliminar_duplicados_no.pack()
+
+#         lbl_eliminar_columnas = tk.Label(self, text="Desea eliminar columnas:")
+#         lbl_eliminar_columnas.pack()
+#         radio_eliminar_columnas_si = tk.Radiobutton(self, text="SI", variable=self.eliminar_columnas_var, value="SI")
+#         radio_eliminar_columnas_si.pack()
+#         radio_eliminar_columnas_no = tk.Radiobutton(self, text="NO", variable=self.eliminar_columnas_var, value="NO")
+#         radio_eliminar_columnas_no.pack()
+
+#         self.btn_enviar_resultados = tk.Button(self, text="Enviar resultados", command=self.enviar_resultados_seleccionados)
+#         self.btn_enviar_resultados.pack(pady=20)
+
+#         self.btn_descargar_dataframes = tk.Button(self, text="Descargar dataframes", command=self.controller.recibir_dataframes)
+#         self.btn_descargar_dataframes.pack(pady=20)
+
+#     def enviar_resultados_seleccionados(self):
+#         eliminar_nulos = self.eliminar_nulos_var.get()
+#         eliminar_duplicados = self.eliminar_duplicados_var.get()
+#         eliminar_columna = self.eliminar_columnas_var.get()
+#         if eliminar_columna == 'SI':
+#             columnas = self.controller.eliminar_columnas()
+#         else:
+#             columnas = []
+#         self.controller.enviar_resultados(eliminar_nulos, eliminar_duplicados, eliminar_columna, columnas)
+
+
 def main():
     host = args.host
     port = args.port
@@ -73,13 +195,20 @@ def main():
 
     cliente.sendall(args.folder.encode())
 
+    # controller = ClienteController()
+    # controller.conectar_servidor(args)
+
+    # view = ClienteView(controller)
+    # view.mainloop()
+
     root = tk.Tk()
     root.title("Cliente")
     root.geometry("300x400")
 
-    btn_seleccionar_archivos = tk.Button(root, text="Seleccionar archivos",
-                                         command=enviar_archivos_seleccionados())
+    btn_seleccionar_archivos = tk.Button(root, text="Seleccionar archivos", command=seleccionar_archivos)
     btn_seleccionar_archivos.pack(pady=20)
+
+    archivos_seleccionados = seleccionar_archivos()
 
     print(archivos_seleccionados)
 
@@ -132,7 +261,6 @@ def main():
     root.mainloop()
 
     cliente.close()
-
 
 if __name__ == "__main__":
     main()

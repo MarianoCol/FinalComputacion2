@@ -45,6 +45,20 @@ def handle_client(conn, addr):
 
         send_all_dataframes(conn, prueba)
 
+    directory_path = os.path.join('file_server', folder_name)
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Error al eliminar {file_path}: {e}")
+
+    os.rmdir(directory_path)
+
+    conn.close()
+
+
 def handle_parameters(conn, file_paths):
     parameters = conn.recv(1024).decode()
     list_parameters = parameters.split(',')
@@ -67,8 +81,6 @@ def handle_parameters(conn, file_paths):
                                list(p_res))
 
     return p_res
-
-    # conn.close()
 
 
 def main():

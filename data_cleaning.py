@@ -29,17 +29,16 @@ def drop_columns(dataframe, columns_to_drop):
 
 def send_all_dataframes(conn, dataframes):
     # Combinar los dataframes en uno solo
-    print(list(dataframes))
     print('entro')
     lista_dataframes = []
     for i in list(dataframes):
         lista_dataframes.append(i)
-    print(lista_dataframes)
-    combined_dataframe = pd.concat(lista_dataframes, ignore_index=True)
-    print(combined_dataframe)
+    combined_dataframe = pd.concat(lista_dataframes, ignore_index=True, verify_integrity=True)
+    df_clean = combined_dataframe.drop_duplicates(keep=False)
+    print(df_clean)
 
     # Serializar el dataframe combinado
-    combined_dataframe_serializado = pickle.dumps(combined_dataframe)
+    combined_dataframe_serializado = pickle.dumps(df_clean)
     print('dumpeados')
 
     # Enviar el tamaño del dataframe serializado al cliente
