@@ -1,6 +1,6 @@
 import socket
 import os
-import pickle
+import json
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from data_cleaning import upload_data, clean_data, clean_nulls, drop_columns, directory_creator, send_all_dataframes
 
@@ -17,8 +17,11 @@ def recibir_archivo(conn, filename, filesize):
 
 
 def handle_client(conn, addr):
-    folder_name = conn.recv(1024).decode()
-    directory_path = directory_creator('file_server', folder_name)
+    arguments = conn.recv(1024).decode()
+    print(f'parametros recibidos: {arguments}')
+    arguments_parsed = json.loads(arguments)
+    directory_path = directory_creator('file_server',
+                                       arguments_parsed['folder'])
     file_paths = []
 
     while True:
@@ -35,8 +38,9 @@ def handle_client(conn, addr):
         recibir_archivo(conn, filepath, filesize)
         print("Archivo {} recibido exitosamente".format(filename))
 
-    dataframes = handle_parameters(conn, file_paths)
+    dataframes = handle_parameters(conn, file_paths, arguments_parsed)
     prueba = list(dataframes)
+    print('DATAFRAMES')
     print(prueba)
     # Serializar el dataframe combinado
     descarga = conn.recv(1024).decode()
@@ -45,7 +49,7 @@ def handle_client(conn, addr):
 
         send_all_dataframes(conn, prueba)
 
-    directory_path = os.path.join('file_server', folder_name)
+    directory_path = os.path.join('file_server', arguments_parsed['folder'])
     for filename in os.listdir(directory_path):
         file_path = os.path.join(directory_path, filename)
         try:
@@ -59,11 +63,12 @@ def handle_client(conn, addr):
     conn.close()
 
 
-def handle_parameters(conn, file_paths):
+def handle_parameters(conn, file_paths, arguments):
     parameters = conn.recv(1024).decode()
     list_parameters = parameters.split(',')
     with ThreadPoolExecutor() as thread:
-        p_res = list(thread.map(upload_data, file_paths))
+        # p_res = list(thread.map(upload_data, file_paths))
+        p_res = thread.map(lambda df: upload_data(df, arguments), file_paths)
 
     if list_parameters[0] == 'SI':
         with ThreadPoolExecutor() as thread:
@@ -77,7 +82,8 @@ def handle_parameters(conn, file_paths):
 
     if list_parameters[2] == 'SI':
         with ThreadPoolExecutor() as thread:
-            p_res = thread.map(lambda df: drop_columns(df, columns_to_drop_list),
+            p_res = thread.map(lambda df: drop_columns(df,
+                                                       columns_to_drop_list),
                                list(p_res))
 
     return p_res

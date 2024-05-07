@@ -1,13 +1,12 @@
-from arguments import argument_definition
 import pandas as pd
 import os
 import pickle
 
-args = argument_definition()
 
-
-def upload_data(file_path):
-    df = pd.read_csv(file_path, header=args.header, encoding='latin1', sep=';')
+def upload_data(file_path, arguments):
+    df = pd.read_csv(file_path, header=arguments['header'],
+                     encoding=arguments['encoding'],
+                     sep=arguments['sep'])
     return df
 
 
@@ -33,7 +32,8 @@ def send_all_dataframes(conn, dataframes):
     lista_dataframes = []
     for i in list(dataframes):
         lista_dataframes.append(i)
-    combined_dataframe = pd.concat(lista_dataframes, ignore_index=True, verify_integrity=True)
+    combined_dataframe = pd.concat(lista_dataframes, ignore_index=True,
+                                   verify_integrity=True)
     df_clean = combined_dataframe.drop_duplicates(keep=False)
     print(df_clean)
 
@@ -42,7 +42,8 @@ def send_all_dataframes(conn, dataframes):
     print('dumpeados')
 
     # Enviar el tamaño del dataframe serializado al cliente
-    conn.sendall(len(combined_dataframe_serializado).to_bytes(4, byteorder='big'))
+    conn.sendall(len(combined_dataframe_serializado).to_bytes(4,
+                                                              byteorder='big'))
     print('tamaño enviado')
 
     # Enviar el dataframe serializado al cliente
@@ -54,7 +55,7 @@ def directory_creator(route_name, folder_name):
     directory_path = os.path.join(route_name, folder_name)
     try:
         os.makedirs(directory_path, exist_ok=True)
-        print("La carpeta ha sido creada exitosamente.")
+        print(f"La carpeta {directory_path} ha sido creada exitosamente.")
     except OSError as error:
         print(f"Error al crear la carpeta: {error}")
 
