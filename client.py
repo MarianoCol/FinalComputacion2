@@ -43,6 +43,7 @@ class ClienteController:
 
     def enviar_archivo(self, filename):
         filesize = os.path.getsize(filename)
+        # big-endian compatible con TCP/IP
         self.cliente.sendall(len(filename).to_bytes(4, byteorder='big'))
         self.cliente.sendall(filename.encode())
         self.cliente.sendall(filesize.to_bytes(8, byteorder='big'))

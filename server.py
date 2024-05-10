@@ -39,15 +39,15 @@ def handle_client(conn, addr):
         print("Archivo {} recibido exitosamente".format(filename))
 
     dataframes = handle_parameters(conn, file_paths, arguments_parsed)
-    prueba = list(dataframes)
+    df_list = list(dataframes)
     print('DATAFRAMES')
-    print(prueba)
+    print(df_list)
     # Serializar el dataframe combinado
     descarga = conn.recv(1024).decode()
     if descarga != '':
         print(descarga)
 
-        send_all_dataframes(conn, prueba)
+        send_all_dataframes(conn, df_list)
 
     directory_path = os.path.join('file_server', arguments_parsed['folder'])
     for filename in os.listdir(directory_path):
