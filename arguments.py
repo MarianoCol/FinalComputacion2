@@ -20,6 +20,12 @@ def argument_definition():
     parser.add_argument("-i", "--header", default=0,
                         help="Index for the dataset header")
 
+    parser.add_argument("-s", "--sep", default=',',
+                        help="Separator of CSV")
+
+    parser.add_argument("-e", "--encoding", default='latin1',
+                        help="Encodign of CSV")
+
     arguments = parser.parse_args()
 
     return arguments
