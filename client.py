@@ -38,6 +38,10 @@ class ClienteController:
         return self.archivos_seleccionados
 
     def enviar_archivos(self):
+        if not self.archivos_seleccionados:
+            print("No se han seleccionado archivos. Por favor, seleccione al menos un archivo.")
+            return
+
         for filename in self.archivos_seleccionados:
             try:
                 print("Enviando:", filename)

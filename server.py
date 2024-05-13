@@ -2,6 +2,7 @@ import socket
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from arguments import argument_definition
 from data_cleaning import upload_data, clean_data, clean_nulls, drop_columns, directory_creator, send_all_dataframes
 
 
@@ -50,19 +51,25 @@ def handle_client(conn, addr):
 
             send_all_dataframes(conn, df_list)
 
-        directory_path = os.path.join('file_server', arguments_parsed['folder'])
-        for filename in os.listdir(directory_path):
-            file_path = os.path.join(directory_path, filename)
-            try:
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                print(f"Error al eliminar {file_path}: {e}")
-
-        os.rmdir(directory_path)
-
     except Exception as e:
         print(f"Error al manejar la conexión con el cliente: {e}")
+
+    finally:
+        try:
+            directory_path = os.path.join('file_server',
+                                          arguments_parsed['folder'])
+            for filename in os.listdir(directory_path):
+                file_path = os.path.join(directory_path, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except Exception as e:
+                    print(f"Error al eliminar {file_path}: {e}")
+
+            os.rmdir(directory_path)
+
+        except Exception as e:
+            print(f"Error al eliminar el directorio temporal: {e}")
 
     conn.close()
 
@@ -72,7 +79,6 @@ def handle_parameters(conn, file_paths, arguments):
         parameters = conn.recv(1024).decode()
         list_parameters = parameters.split(',')
         with ThreadPoolExecutor() as thread:
-            # p_res = list(thread.map(upload_data, file_paths))
             p_res = thread.map(lambda df: upload_data(df, arguments), file_paths)
 
         if list_parameters[0] == 'SI':
@@ -97,8 +103,10 @@ def handle_parameters(conn, file_paths, arguments):
 
 
 def main():
+    args = argument_definition()
+
     host = '::'  # Recibe IPv4 como en IPv6
-    port = 12345
+    port = args.port
 
     servidor = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
